@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA Image Encryption Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #667eea;
+            border-radius: 15px;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .steps-container {
+            display: grid;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .step {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            opacity: 1;
+            transform: translateX(5px);
+            border-left-color: #764ba2;
+        }
+
+        .step h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .step-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .canvas-container {
+            text-align: center;
+        }
+
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .data-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .math-formula {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #764ba2;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .key-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .key-item {
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RSA Image Encryption Visualizer</h1>
+        
+        <div class="upload-section">
+            <input type="file" id="imageInput" class="file-input" accept="image/*">
+            <button class="upload-btn" onclick="document.getElementById('imageInput').click()">
+                📁 Upload Image
+            </button>
+            <p style="margin-top: 10px; color: #666;">Upload a small image (recommended: 32x32 pixels or smaller)</p>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="startBtn" onclick="startEncryption()" disabled>🔐 Start Encryption</button>
+            <button class="btn" id="nextBtn" onclick="nextStep()" disabled>➡️ Next Step</button>
+            <button class="btn" id="resetBtn" onclick="resetDemo()">🔄 Reset</button>
+        </div>
+
+        <div class="steps-container" id="stepsContainer">
+            <!-- Steps will be dynamically generated -->
+        </div>
+    </div>
+
+    <script>
+        let originalImage = null;
+        let currentStep = 0;
+        let rsaKeys = {};
+        let pixelData = [];
+        let encryptedData = [];
+        let decryptedData = [];
+        
+        const steps = [
+            {
+                title: "Step 1: Image Upload & Pixel Extraction",
+                description: "Load image and extract RGB pixel values"
+            },
+            {
+                title: "Step 2: RSA Key Generation", 
+                description: "Generate prime numbers p, q and compute n, φ(n), e, d"
+            },
+            {
+                title: "Step 3: Pixel Packing (Base-256)",
+                description: "Pack RGB values into integers: M = R×256² + G×256 + B"
+            },
+            {
+                title: "Step 4: RSA Encryption",
+                description: "Encrypt each pixel: C = M^e mod n"
+            },
+            {
+                title: "Step 5: RSA Decryption", 
+                description: "Decrypt ciphertext: M = C^d mod n"
+            },
+            {
+                title: "Step 6: Pixel Unpacking & Reconstruction",
+                description: "Unpack integers back to RGB and reconstruct image"
+            }
+        ];
+
+        // Initialize steps
+        function initializeSteps() {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+            
+            steps.forEach((step, index) => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'step';
+                stepElement.id = `step${index}`;
+                stepElement.innerHTML = `
+                    <h3>${step.title}</h3>
+                    <div class="step-content" id="stepContent${index}">
+                        <div class="canvas-container">
+                            <canvas id="canvas${index}" width="200" height="200"></canvas>
+                        </div>
+                        <div class="data-display" id="dataDisplay${index}">
+                            ${step.description}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(stepElement);
+            });
+        }
+
+        // Handle image upload
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        originalImage = img;
+                        document.getElementById('startBtn').disabled = false;
+                        resetDemo();
+                        displayImage(img, 'canvas0');
+                        updateDataDisplay(0, 'Image loaded successfully!\nDimensions: ' + img.width + 'x' + img.height);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Display image on canvas
+        function displayImage(img, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Scale image to fit canvas
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 
+                (canvas.width - scaledWidth) / 2, 
+                (canvas.height - scaledHeight) / 2,
+                scaledWidth, scaledHeight);
+        }
+
+        // Simple prime generation (for demo purposes)
+        function isPrime(n) {
+            if (n < 2) return false;
+            for (let i = 2; i <= Math.sqrt(n); i++) {
+                if (n % i === 0) return false;
+            }
+            return true;
+        }
+
+        function generatePrime(min, max) {
+            for (let i = min; i <= max; i++) {
+                if (isPrime(i)) return i;
+            }
+            return 17; // fallback
+        }
+
+        // Extended Euclidean Algorithm
+        function extendedGCD(a, b) {
+            if (a === 0) return [b, 0, 1];
+            const [gcd, x1, y1] = extendedGCD(b % a, a);
+            const x = y1 - Math.floor(b / a) * x1;
+            const y = x1;
+            return [gcd, x, y];
+        }
+
+        function modInverse(e, phi) {
+            const [gcd, x, y] = extendedGCD(e, phi);
+            if (gcd !== 1) throw new Error('Modular inverse does not exist');
+            return ((x % phi) + phi) % phi;
+        }
+
+        // Modular exponentiation
+        function modPow(base, exp, mod) {
+            if (mod === 1) return 0;
+            let result = 1;
+            base = base % mod;
+            while (exp > 0) {
+                if (exp % 2 === 1) {
+                    result = (result * base) % mod;
+                }
+                exp = Math.floor(exp / 2);
+                base = (base * base) % mod;
+            }
+            return result;
+        }
+
+        // Generate RSA keys
+        function generateRSAKeys() {
+            const p = generatePrime(50, 100);
+            const q = generatePrime(100, 150);
+            const n = p * q;
+            const phi = (p - 1) * (q - 1);
+            const e = 65537; // Common choice
+            let actualE = e;
+            
+            // Find suitable e
+            for (let i = 3; i < phi; i += 2) {
+                if (gcd(i, phi) === 1) {
+                    actualE = i;
+                    break;
+                }
+            }
+            
+            const d = modInverse(actualE, phi);
+            
+            return { p, q, n, phi, e: actualE, d };
+        }
+
+        function gcd(a, b) {
+            while (b !== 0) {
+                const temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
+        // Extract pixel data from image
+        function extractPixelData(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.min(img.width, 8); // Limit size for demo
+            canvas.height = Math.min(img.height, 8);
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = [];
+            
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const r = imageData.data[i];
+                const g = imageData.data[i + 1];
+                const b = imageData.data[i + 2];
+                pixels.push({ r, g, b });
+            }
+            
+            return pixels;
+        }
+
+        // Pack RGB to integer
+        function packPixel(r, g, b) {
+            return r * 256 * 256 + g * 256 + b;
+        }
+
+        // Unpack integer to RGB
+        function unpackPixel(packed) {
+            const r = Math.floor(packed / (256 * 256));
+            const g = Math.floor((packed % (256 * 256)) / 256);
+            const b = packed % 256;
+            return { r, g, b };
+        }
+
+        // Update data display
+        function updateDataDisplay(stepIndex, content) {
+            document.getElementById(`dataDisplay${stepIndex}`).innerHTML = content;
+        }
+
+        // Update progress bar
+        function updateProgress(percentage) {
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        // Start encryption process
+        function startEncryption() {
+            currentStep = 0;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = false;
+            
+            // Extract pixel data
+            pixelData = extractPixelData(originalImage);
+            
+            // Generate RSA keys
+            rsaKeys = generateRSAKeys();
+            
+            // Activate first step
+            activateStep(0);
+            
+            // Update step 1 display
+            updateDataDisplay(0, `
+                Pixels extracted: ${pixelData.length}<br>
+                Sample pixels:<br>
+                ${pixelData.slice(0, 3).map((p, i) => 
+                    `Pixel ${i}: RGB(${p.r}, ${p.g}, ${p.b})`
+                ).join('<br>')}
+            `);
+            
+            updateProgress(16.7);
+        }
+
+        // Activate step
+        function activateStep(stepIndex) {
+            // Deactivate all steps
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Activate current step
+            document.getElementById(`step${stepIndex}`).classList.add('active');
+            
+            // Scroll to step
+            document.getElementById(`step${stepIndex}`).scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }
+
+        // Next step
+        function nextStep() {
+            currentStep++;
+            
+            switch(currentStep) {
+                case 1:
+                    showKeyGeneration();
+                    break;
+                case 2:
+                    showPixelPacking();
+                    break;
+                case 3:
+                    showEncryption();
+                    break;
+                case 4:
+                    showDecryption();
+                    break;
+                case 5:
+                    showReconstruction();
+                    break;
+                default:
+                    document.getElementById('nextBtn').disabled = true;
+                    return;
+            }
+            
+            activateStep(currentStep);
+            updateProgress((currentStep + 1) * 16.7);
+        }
+
+        // Show key generation
+        function showKeyGeneration() {
+            const content = `
+                <div class="key-display">
+                    <div class="key-item">
+                        <strong>Prime p:</strong> ${rsaKeys.p}
+                    </div>
+                    <div class="key-item">
+                        <strong>Prime q:</strong> ${rsaKeys.q}
+                    </div>
+                    <div class="key-item">
+                        <strong>n = p × q:</strong> ${rsaKeys.n}
+                    </div>
+                    <div class="key-item">
+                        <strong>φ(n):</strong> ${rsaKeys.phi}
+                    </div>
+                    <div class="key-item">
+                        <strong>e (public):</strong> ${rsaKeys.e}
+                    </div>
+                    <div class="key-item">
+                        <strong>d (private):</strong> ${rsaKeys.d}
+                    </div>
+                </div>
+                <div class="math-formula">
+                    n = p × q = ${rsaKeys.p} × ${rsaKeys.q} = ${rsaKeys.n}<br>
+                    φ(n) = (p-1)(q-1) = ${rsaKeys.phi}<br>
+                    e × d ≡ 1 (mod φ(n))
+                </div>
+            `;
+            updateDataDisplay(1, content);
+        }
+
+        // Show pixel packing
+        function showPixelPacking() {
+            const packedPixels = pixelData.map(p => packPixel(p.r, p.g, p.b));
+            
+            const content = `
+                <div class="math-formula">
+                    M = R × 256² + G × 256 + B
+                </div>
+                Packed pixels:<br>
+                ${pixelData.slice(0, 5).map((p, i) => 
+                    `RGB(${p.r},${p.g},${p.b}) → ${packedPixels[i]}`
+                ).join('<br>')}
+                <br><br>
+                Total pixels packed: ${packedPixels.length}
+            `;
+            updateDataDisplay(2, content);
+            
+            // Store for next step
+            window.packedPixels = packedPixels;
+        }
+
+        // Show encryption
+        function showEncryption() {
+            const packedPixels = window.packedPixels;
+            encryptedData = packedPixels.map(m => {
+                if (m < rsaKeys.n) {
+                    return modPow(m, rsaKeys.e, rsaKeys.n);
+                }
+                return m; // Skip if too large
+            });
+            
+            const content = `
+                <div class="math-formula">
+                    C = M^e mod n
+                </div>
+                Encrypted pixels:<br>
+                ${packedPixels.slice(0, 5).map((m, i) => 
+                    `${m}^${rsaKeys.e} mod ${rsaKeys.n} = ${encryptedData[i]}`
+                ).join('<br>')}
+                <br><br>
+                Encryption complete!
+            `;
+            updateDataDisplay(3, content);
+            
+            // Show encrypted "noise" visualization
+            drawNoise('canvas3');
+        }
+
+        // Show decryption
+        function showDecryption() {
+            decryptedData = encryptedData.map(c => {
+                return modPow(c, rsaKeys.d, rsaKeys.n);
+            });
+            
+            const content = `
+                <div class="math-formula">
+                    M = C^d mod n
+                </div>
+                Decrypted pixels:<br>
+                ${encryptedData.slice(0, 5).map((c, i) => 
+                    `${c}^${rsaKeys.d} mod ${rsaKeys.n} = ${decryptedData[i]}`
+                ).join('<br>')}
+                <br><br>
+                Decryption complete!
+            `;
+            updateDataDisplay(4, content);
+        }
+
+        // Show reconstruction
+        function showReconstruction() {
+            const reconstructedPixels = decryptedData.map(m => unpackPixel(m));
+            
+            const content = `
+                <div class="math-formula">
+                    R = ⌊M/256²⌋, G = ⌊M/256⌋ mod 256, B = M mod 256
+                </div>
+                Reconstructed pixels:<br>
+                ${reconstructedPixels.slice(0, 5).map((p, i) => 
+                    `${decryptedData[i]} → RGB(${p.r},${p.g},${p.b})`
+                ).join('<br>')}
+                <br><br>
+                <strong>Image successfully reconstructed!</strong>
+            `;
+            updateDataDisplay(5, content);
+            
+            // Draw reconstructed image
+            drawReconstructedImage(reconstructedPixels, 'canvas5');
+        }
+
+        // Draw noise visualization
+        function drawNoise(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < 1000; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const gray = Math.random() * 255;
+                ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+
+        // Draw reconstructed image
+        function drawReconstructedImage(pixels, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            const size = Math.sqrt(pixels.length);
+            const pixelSize = Math.min(canvas.width / size, canvas.height / size);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            pixels.forEach((pixel, index) => {
+                const x = (index % size) * pixelSize;
+                const y = Math.floor(index / size) * pixelSize;
+                
+                ctx.fillStyle = `rgb(${pixel.r},${pixel.g},${pixel.b})`;
+                ctx.fillRect(x, y, pixelSize, pixelSize);
+            });
+        }
+
+        // Reset demo
+        function resetDemo() {
+            currentStep = 0;
+            encryptedData = [];
+            decryptedData = [];
+            
+            document.getElementById('startBtn').disabled = originalImage ? false : true;
+            document.getElementById('nextBtn').disabled = true;
+            
+            // Deactivate all steps
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            updateProgress(0);
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            initializeSteps();
+        };
+    </script>
+</body>
+</html>
