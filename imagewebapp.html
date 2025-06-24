@@ -359,8 +359,8 @@
 
         // Generate RSA keys
         function generateRSAKeys() {
-            const p = generatePrime(50, 100);
-            const q = generatePrime(100, 150);
+            const p = generatePrime(30000, 50000);
+            const q = generatePrime(50000, 70000);
             const n = p * q;
             const phi = (p - 1) * (q - 1);
             const e = 65537; // Common choice
